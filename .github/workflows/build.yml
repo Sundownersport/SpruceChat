@@ -6,18 +6,19 @@ on:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    container: debian:bookworm-slim
 
     steps:
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y git cmake make gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf ccache zip curl
+
       - name: Checkout SpruceChat
         uses: actions/checkout@v4
 
       - name: Clone llama.cpp
         run: git clone --depth 1 https://github.com/ggerganov/llama.cpp.git /tmp/llama.cpp
-
-      - name: Install ARM cross-compiler and ccache
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake make gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf ccache
 
       - name: Restore ccache
         uses: actions/cache@v4
@@ -70,7 +71,7 @@ jobs:
             fi
           done
 
-          # ARM glibc from cross-compiler sysroot
+          # ARM glibc from cross-compiler sysroot (Bookworm = glibc 2.36)
           SYSROOT=/usr/arm-linux-gnueabihf/lib
           for lib in ld-linux-armhf.so.3 libc.so.6 libm.so.6 libpthread.so.0 libdl.so.2 librt.so.1 libgcc_s.so.1; do
             cp "$SYSROOT/$lib" "lib/$lib" 2>/dev/null || true
@@ -82,7 +83,10 @@ jobs:
           chmod +x lib/ld-linux-armhf.so.3
 
       - name: Download model from models release
-        run: gh release download models -p "qwen2.5-0.5b-instruct-q4_0.gguf" -D models
+        run: |
+          curl -sL "https://github.com/cli/cli/releases/download/v2.67.0/gh_2.67.0_linux_amd64.deb" -o /tmp/gh.deb
+          dpkg -i /tmp/gh.deb
+          gh release download models -p "qwen2.5-0.5b-instruct-q4_0.gguf" -D models
         env:
           GH_TOKEN: ${{ github.token }}
 
