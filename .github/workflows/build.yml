@@ -14,10 +14,17 @@ jobs:
       - name: Clone llama.cpp
         run: git clone --depth 1 https://github.com/ggerganov/llama.cpp.git /tmp/llama.cpp
 
-      - name: Install ARM cross-compiler
+      - name: Install ARM cross-compiler and ccache
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake make gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
+          sudo apt-get install -y cmake make gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf ccache
+
+      - name: Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-arm-${{ hashFiles('/tmp/llama.cpp/.git/HEAD') }}
+          restore-keys: ccache-arm-
 
       - name: Cross-compile for ARMv7 NEON
         working-directory: /tmp/llama.cpp
@@ -25,6 +32,8 @@ jobs:
           cat > arm32-toolchain.cmake <<'EOF'
           set(CMAKE_SYSTEM_NAME Linux)
           set(CMAKE_SYSTEM_PROCESSOR arm)
+          set(CMAKE_C_COMPILER_LAUNCHER ccache)
+          set(CMAKE_CXX_COMPILER_LAUNCHER ccache)
           set(CMAKE_C_COMPILER arm-linux-gnueabihf-gcc)
           set(CMAKE_CXX_COMPILER arm-linux-gnueabihf-g++)
           set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
@@ -34,6 +43,7 @@ jobs:
           set(CMAKE_CXX_FLAGS "-march=armv7-a -mfpu=neon-vfpv4 -mfloat-abi=hard -O2")
           EOF
 
+          ccache -z
           cmake -B build \
             -DCMAKE_TOOLCHAIN_FILE=arm32-toolchain.cmake \
             -DCMAKE_BUILD_TYPE=Release \
@@ -42,6 +52,7 @@ jobs:
             -DGGML_OPENMP=OFF
 
           cmake --build build --target llama-server llama-cli -j$(nproc)
+          ccache -s
 
       - name: Collect binaries and libraries
         run: |
