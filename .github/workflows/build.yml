@@ -1,0 +1,173 @@
+name: Build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  a30:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE: ghcr.io/sundownersport/sprucechat-builder-a30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.a30
+          push: true
+          tags: ${{ env.IMAGE }}:latest
+          cache-from: type=registry,ref=${{ env.IMAGE }}:cache
+          cache-to: type=registry,ref=${{ env.IMAGE }}:cache,mode=max
+
+      - name: Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: ccache
+          key: ccache-a30-${{ github.sha }}
+          restore-keys: ccache-a30-
+
+      - name: Build llama.cpp
+        run: |
+          mkdir -p output ccache
+          docker run --rm \
+            -v ${{ github.workspace }}/output:/output \
+            -v ${{ github.workspace }}/ccache:/ccache \
+            ${{ env.IMAGE }}:latest
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpruceChat-a30
+          path: output/
+
+  universal:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE: ghcr.io/sundownersport/sprucechat-builder-universal
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.universal
+          push: true
+          tags: ${{ env.IMAGE }}:latest
+          cache-from: type=registry,ref=${{ env.IMAGE }}:cache
+          cache-to: type=registry,ref=${{ env.IMAGE }}:cache,mode=max
+
+      - name: Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: ccache
+          key: ccache-universal-${{ github.sha }}
+          restore-keys: ccache-universal-
+
+      - name: Build llama.cpp
+        run: |
+          mkdir -p output ccache
+          docker run --rm \
+            -v ${{ github.workspace }}/output:/output \
+            -v ${{ github.workspace }}/ccache:/ccache \
+            ${{ env.IMAGE }}:latest
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpruceChat-universal
+          path: output/
+
+  package:
+    needs: [a30, universal]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure latest release exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view latest >/dev/null 2>&1 || \
+            gh release create latest \
+              --target "${{ github.ref_name }}" \
+              --title "Latest Build" \
+              --notes "Most recent SpruceChat build. Updated automatically." \
+            || true
+
+      - name: Download A30 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: SpruceChat-a30
+          path: a30/
+
+      - name: Download universal artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: SpruceChat-universal
+          path: universal/
+
+      - name: Download model from models release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download models -p "qwen2.5-0.5b-instruct-q4_0.gguf" -D models
+
+      - name: Package release zip
+        run: |
+          mkdir -p SpruceChat/lib SpruceChat/lib32 SpruceChat/models
+
+          # 64-bit binaries + libs
+          cp universal/llama-server universal/llama-cli SpruceChat/
+          cp universal/lib/* SpruceChat/lib/
+
+          # 32-bit binaries + libs (A30)
+          cp a30/llama-server32 a30/llama-cli32 SpruceChat/
+          cp a30/lib32/* SpruceChat/lib32/
+
+          # Model
+          cp models/*.gguf SpruceChat/models/
+
+          # App files
+          cp chat.py config.json icon.png launch.sh README.md SpruceChat/
+
+          zip -r SpruceChat.zip SpruceChat/
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpruceChat
+          path: SpruceChat.zip
+
+      - name: Update latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload latest SpruceChat.zip --clobber
