@@ -52,6 +52,14 @@ for lib in ld-linux-armhf.so.3 libc.so.6 libm.so.6 libpthread.so.0 libdl.so.2 li
     cp "$SYSROOT/lib/$lib" "$OUTPUT_DIR/lib32/$lib" 2>/dev/null || true
 done
 
+# OpenSSL from sysroot (llama-server uses HTTPS)
+for lib in libssl.so.3 libcrypto.so.3; do
+    real=$(find "$SYSROOT" -name "$lib*" ! -type l 2>/dev/null | head -1)
+    if [ -n "$real" ]; then
+        cp "$real" "$OUTPUT_DIR/lib32/$lib"
+    fi
+done
+
 chmod +x "$OUTPUT_DIR/llama-server32" "$OUTPUT_DIR/llama-cli32" "$OUTPUT_DIR/lib32/ld-linux-armhf.so.3"
 
 echo "=== Build complete ==="
