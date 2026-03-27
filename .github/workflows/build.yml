@@ -117,10 +117,7 @@ jobs:
         with:
           name: SpruceChat
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: build-${{ github.run_number }}
-          name: Build #${{ github.run_number }}
-          files: SpruceChat.zip
-          generate_release_notes: true
+      - name: Update latest release
+        run: gh release upload latest SpruceChat.zip --clobber -R ${{ github.repository }}
+        env:
+          GH_TOKEN: ${{ github.token }}
