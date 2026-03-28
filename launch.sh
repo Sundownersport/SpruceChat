@@ -5,16 +5,30 @@ APP_DIR="/mnt/SDCARD/App/SpruceChat"
 export HOME="$APP_DIR"
 cd "$APP_DIR"
 
-# Platform-specific binary and library selection
+# Platform-specific setup
 # helperFunctions.sh sources the platform .cfg which sets
-# LD_LIBRARY_PATH, DEVICE_PYTHON3_PATH, PYSDL2_DLL_PATH, etc.
-if [ "$PLATFORM" = "A30" ]; then
-    SERVER_BIN="$APP_DIR/llama-server32"
-    export LD_LIBRARY_PATH="$APP_DIR/lib32:$LD_LIBRARY_PATH"
-else
-    SERVER_BIN="$APP_DIR/llama-server"
-    export LD_LIBRARY_PATH="$APP_DIR/lib:$LD_LIBRARY_PATH"
-fi
+# LD_LIBRARY_PATH, DISPLAY_WIDTH/HEIGHT/ROTATION, B_* button codes, etc.
+# Python path and PYSDL2_DLL_PATH must be set per-app.
+case "$PLATFORM" in
+    "A30")
+        SERVER_BIN="$APP_DIR/llama-server32"
+        PYTHON="/mnt/SDCARD/spruce/bin/python/bin/python3.10"
+        export LD_LIBRARY_PATH="$APP_DIR/lib32:$LD_LIBRARY_PATH"
+        export PYSDL2_DLL_PATH="/mnt/SDCARD/spruce/a30/sdl2"
+        ;;
+    "Brick"|"SmartPro"|"SmartProS")
+        SERVER_BIN="$APP_DIR/llama-server"
+        PYTHON="/mnt/SDCARD/spruce/flip/bin/python3.10"
+        export LD_LIBRARY_PATH="$APP_DIR/lib:$LD_LIBRARY_PATH"
+        export PYSDL2_DLL_PATH="/mnt/SDCARD/spruce/brick/sdl2"
+        ;;
+    *)
+        SERVER_BIN="$APP_DIR/llama-server"
+        PYTHON="/mnt/SDCARD/spruce/flip/bin/python3.10"
+        export LD_LIBRARY_PATH="$APP_DIR/lib:$LD_LIBRARY_PATH"
+        export PYSDL2_DLL_PATH="/mnt/SDCARD/spruce/flip/lib"
+        ;;
+esac
 
 # Pass display info to chat.py (from platform .cfg)
 export SCREEN_WIDTH="$DISPLAY_WIDTH"
@@ -52,7 +66,7 @@ if [ -x "$SERVER_BIN" ] && [ -f "$MODEL" ]; then
     # Don't wait here — chat.py shows a loading screen while server starts
 fi
 
-"$DEVICE_PYTHON3_PATH" "$APP_DIR/chat.py" > "$APP_DIR/chat.log" 2>&1
+"$PYTHON" "$APP_DIR/chat.py" > "$APP_DIR/chat.log" 2>&1
 
 # Cleanup: kill server when app exits
 if [ -n "$SERVER_PID" ]; then
