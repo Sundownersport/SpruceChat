@@ -48,9 +48,10 @@ for soname in libggml-base.so.0 libggml-cpu.so.0 libggml.so.0 libllama.so.0 libm
 done
 
 # Runtime libs from toolchain (device has glibc 2.23 natively, no need to bundle it)
-# Bundle: libstdc++, libgcc_s, OpenSSL, libatomic
+# Search sysroot and GCC lib dirs only — avoid buildroot wrapper scripts
+LIBDIRS="$SYSROOT/lib $SYSROOT/usr/lib /opt/a30/arm-a30-linux-gnueabihf/lib"
 for lib in libstdc++.so.6 libgcc_s.so.1 libssl.so.3 libcrypto.so.3 libatomic.so.1; do
-    real=$(find /opt/a30 -name "$lib*" ! -type l 2>/dev/null | head -1)
+    real=$(find $LIBDIRS -name "$lib*" ! -type l -exec file {} \; 2>/dev/null | grep "ELF" | head -1 | cut -d: -f1)
     if [ -n "$real" ]; then
         cp "$real" "$OUTPUT_DIR/lib32/$lib"
     fi
