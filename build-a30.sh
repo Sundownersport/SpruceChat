@@ -48,14 +48,21 @@ for soname in libggml-base.so.0 libggml-cpu.so.0 libggml.so.0 libllama.so.0 libm
 done
 
 # Runtime libs from toolchain (device has glibc 2.23 natively, no need to bundle it)
-# Search entire toolchain but verify ELF to skip buildroot wrapper scripts
+# Search entire toolchain, skip symlinks and text scripts (buildroot wrappers)
 for lib in libstdc++.so.6 libgcc_s.so.1 libssl.so.3 libcrypto.so.3 libatomic.so.1; do
-    real=$(find /opt/a30 -name "$lib*" ! -type l -exec file {} \; 2>/dev/null | grep "ELF" | head -1 | cut -d: -f1)
+    real=""
+    for candidate in $(find /opt/a30 -name "$lib*" ! -type l 2>/dev/null); do
+        # Skip text files (buildroot wrapper scripts)
+        if head -c4 "$candidate" | grep -q "ELF"; then
+            real="$candidate"
+            break
+        fi
+    done
     if [ -n "$real" ]; then
         echo "Bundling $lib from $real"
         cp "$real" "$OUTPUT_DIR/lib32/$lib"
     else
-        echo "WARNING: $lib not found as ELF in toolchain"
+        echo "WARNING: $lib not found in toolchain"
     fi
 done
 
