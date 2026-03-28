@@ -6,18 +6,14 @@ export HOME="$APP_DIR"
 cd "$APP_DIR"
 
 # Platform-specific binary and library selection
+# helperFunctions.sh sources the platform .cfg which sets
+# LD_LIBRARY_PATH, DEVICE_PYTHON3_PATH, PYSDL2_DLL_PATH, etc.
 if [ "$PLATFORM" = "A30" ]; then
     SERVER_BIN="$APP_DIR/llama-server32"
-    LIB_DIR="$APP_DIR/lib32"
-    LOADER="$APP_DIR/lib32/ld-linux-armhf.so.3"
-    export LD_LIBRARY_PATH="$APP_DIR/lib32:/mnt/SDCARD/spruce/a30/lib:/mnt/SDCARD/miyoo/lib:$LD_LIBRARY_PATH"
-    export PYSDL2_DLL_PATH="/mnt/SDCARD/spruce/a30/sdl2"
+    export LD_LIBRARY_PATH="$APP_DIR/lib32:$LD_LIBRARY_PATH"
 else
     SERVER_BIN="$APP_DIR/llama-server"
-    LIB_DIR="$APP_DIR/lib"
-    LOADER=""
-    export LD_LIBRARY_PATH="$APP_DIR/lib:/mnt/SDCARD/spruce/bin64:$LD_LIBRARY_PATH"
-    export PYSDL2_DLL_PATH="/mnt/SDCARD/spruce/bin64"
+    export LD_LIBRARY_PATH="$APP_DIR/lib:$LD_LIBRARY_PATH"
 fi
 
 # Ensure loopback is up (some builds don't configure it)
@@ -37,36 +33,21 @@ fi
 # Start persistent llama-server
 SERVER_PID=""
 if [ -x "$SERVER_BIN" ] && [ -f "$MODEL" ]; then
-    if [ -n "$LOADER" ]; then
-        # A30: use bundled glibc loader (device glibc is too old)
-        "$LOADER" --library-path "$LIB_DIR" "$SERVER_BIN" \
-            -m "$MODEL" \
-            -c 1024 \
-            -t 4 \
-            -np 1 \
-            -ngl 0 \
-            -b 32 \
-            --port "$PORT" \
-            --host 0.0.0.0 \
-            > "$APP_DIR/server.log" 2>&1 &
-    else
-        # 64-bit: run directly with system glibc
-        "$SERVER_BIN" \
-            -m "$MODEL" \
-            -c 1024 \
-            -t 4 \
-            -np 1 \
-            -ngl 0 \
-            -b 32 \
-            --port "$PORT" \
-            --host 0.0.0.0 \
-            > "$APP_DIR/server.log" 2>&1 &
-    fi
+    "$SERVER_BIN" \
+        -m "$MODEL" \
+        -c 1024 \
+        -t 4 \
+        -np 1 \
+        -ngl 0 \
+        -b 32 \
+        --port "$PORT" \
+        --host 0.0.0.0 \
+        > "$APP_DIR/server.log" 2>&1 &
     SERVER_PID=$!
     # Don't wait here — chat.py shows a loading screen while server starts
 fi
 
-/mnt/SDCARD/spruce/bin/python/bin/python3.10 "$APP_DIR/chat.py" > "$APP_DIR/chat.log" 2>&1
+"$DEVICE_PYTHON3_PATH" "$APP_DIR/chat.py" > "$APP_DIR/chat.log" 2>&1
 
 # Cleanup: kill server when app exits
 if [ -n "$SERVER_PID" ]; then

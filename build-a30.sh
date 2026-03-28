@@ -47,24 +47,15 @@ for soname in libggml-base.so.0 libggml-cpu.so.0 libggml.so.0 libllama.so.0 libm
     fi
 done
 
-# glibc 2.23 + libstdc++ from A30 sysroot
-for lib in ld-linux-armhf.so.3 libc.so.6 libm.so.6 libpthread.so.0 libdl.so.2 librt.so.1 libgcc_s.so.1; do
-    cp "$SYSROOT/lib/$lib" "$OUTPUT_DIR/lib32/$lib" 2>/dev/null || true
-done
-# libstdc++ (shared libs need it, device version is too old)
-real=$(find /opt/a30 -name "libstdc++.so.6*" ! -type l 2>/dev/null | head -1)
-if [ -n "$real" ]; then
-    cp "$real" "$OUTPUT_DIR/lib32/libstdc++.so.6"
-fi
-
-# OpenSSL + libatomic from sysroot
-for lib in libssl.so.3 libcrypto.so.3 libatomic.so.1; do
+# Runtime libs from toolchain (device has glibc 2.23 natively, no need to bundle it)
+# Bundle: libstdc++, libgcc_s, OpenSSL, libatomic
+for lib in libstdc++.so.6 libgcc_s.so.1 libssl.so.3 libcrypto.so.3 libatomic.so.1; do
     real=$(find /opt/a30 -name "$lib*" ! -type l 2>/dev/null | head -1)
     if [ -n "$real" ]; then
         cp "$real" "$OUTPUT_DIR/lib32/$lib"
     fi
 done
 
-chmod +x "$OUTPUT_DIR/llama-server32" "$OUTPUT_DIR/llama-cli32" "$OUTPUT_DIR/lib32/ld-linux-armhf.so.3"
+chmod +x "$OUTPUT_DIR/llama-server32" "$OUTPUT_DIR/llama-cli32"
 
 echo "=== Build complete ==="
