@@ -27,6 +27,7 @@ cmake -B build \
     -DCMAKE_EXE_LINKER_FLAGS="-static-libstdc++" \
     -DGGML_NATIVE=OFF \
     -DLLAMA_CURL=OFF \
+    -DLLAMA_OPENSSL=OFF \
     -DGGML_OPENMP=OFF
 
 cmake --build build --target llama-server llama-cli -j$(nproc)

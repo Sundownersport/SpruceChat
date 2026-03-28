@@ -33,6 +33,7 @@ cmake -B build \
     -DCMAKE_EXE_LINKER_FLAGS="-static-libstdc++" \
     -DGGML_NATIVE=OFF \
     -DLLAMA_CURL=OFF \
+    -DLLAMA_OPENSSL=OFF \
     -DGGML_OPENMP=OFF
 
 cmake --build build --target llama-server llama-cli -j$(nproc)
@@ -50,14 +51,6 @@ for soname in libggml-base.so.0 libggml-cpu.so.0 libggml.so.0 libllama.so.0 libm
     real=$(find build/bin -name "${soname}*" ! -type l | head -1)
     if [ -n "$real" ]; then
         cp "$real" "$OUTPUT_DIR/lib/$soname"
-    fi
-done
-
-# Runtime libs from cross-compiler sysroot (bundle what the device might lack)
-for lib in libssl.so.3 libcrypto.so.3 libatomic.so.1 libgcc_s.so.1; do
-    real=$(find /usr/aarch64-linux-gnu /usr/lib/aarch64-linux-gnu -name "$lib*" ! -type l 2>/dev/null | head -1)
-    if [ -n "$real" ]; then
-        cp "$real" "$OUTPUT_DIR/lib/$lib"
     fi
 done
 

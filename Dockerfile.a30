@@ -48,26 +48,6 @@ set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)\n\
 set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)\n\
 ' "$SYSROOT" "$SYSROOT" > /tmp/a30-toolchain.cmake
 
-# Cross-compile OpenSSL 3 for A30 (sysroot only has OpenSSL 1.1, llama-server needs 3)
-RUN export PATH="/opt/a30/bin:$PATH" && \
-    wget -q https://github.com/openssl/openssl/releases/download/openssl-3.3.2/openssl-3.3.2.tar.gz \
-        -O /tmp/openssl.tar.gz && \
-    tar xzf /tmp/openssl.tar.gz -C /tmp && \
-    cd /tmp/openssl-3.3.2 && \
-    ./Configure linux-armv4 --cross-compile-prefix=arm-a30-linux-gnueabihf- \
-        --prefix=/opt/a30-openssl --openssldir=/opt/a30-openssl \
-        shared no-tests no-docs -march=armv7-a -mfpu=neon-vfpv4 -mfloat-abi=hard && \
-    make -j$(nproc) && \
-    make install_sw && \
-    rm -rf /tmp/openssl* && \
-    ls -la /opt/a30-openssl/lib/
-
-# Install OpenSSL into sysroot so CMake finds it during llama.cpp build
-RUN SYSROOT=/opt/a30/arm-a30-linux-gnueabihf/sysroot && \
-    cp /opt/a30-openssl/lib/libssl.so.3 "$SYSROOT/usr/lib/" && \
-    cp /opt/a30-openssl/lib/libcrypto.so.3 "$SYSROOT/usr/lib/" && \
-    cp -r /opt/a30-openssl/include/openssl "$SYSROOT/usr/include/"
-
 # Pre-collect runtime libs into a known location using gcc -print-file-name
 # This avoids searching the toolchain at build time (buildroot has wrapper scripts
 # with the same names as the real libs)
@@ -80,8 +60,6 @@ RUN mkdir -p /opt/a30-runtime-libs && \
             cp "$(readlink -f "$real")" "/opt/a30-runtime-libs/$lib"; \
         fi; \
     done && \
-    cp /opt/a30-openssl/lib/libssl.so.3 /opt/a30-runtime-libs/ && \
-    cp /opt/a30-openssl/lib/libcrypto.so.3 /opt/a30-runtime-libs/ && \
     ls -la /opt/a30-runtime-libs/
 
 COPY build-a30.sh /build-a30.sh
