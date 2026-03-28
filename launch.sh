@@ -16,6 +16,11 @@ else
     export LD_LIBRARY_PATH="$APP_DIR/lib:$LD_LIBRARY_PATH"
 fi
 
+# Pass display info to chat.py (from platform .cfg)
+export SCREEN_WIDTH="$DISPLAY_WIDTH"
+export SCREEN_HEIGHT="$DISPLAY_HEIGHT"
+export SCREEN_ROTATION="${DISPLAY_ROTATION:-0}"
+
 # Ensure loopback is up (some builds don't configure it)
 ifconfig lo 127.0.0.1 up 2>/dev/null
 

@@ -14,7 +14,9 @@ import sdl2.sdlttf
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 
-SCREEN_W, SCREEN_H = 640, 480
+SCREEN_W = int(os.environ.get("SCREEN_WIDTH", 640))
+SCREEN_H = int(os.environ.get("SCREEN_HEIGHT", 480))
+SCREEN_ROTATION = int(os.environ.get("SCREEN_ROTATION", 0))
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 FONT_PATH = "/mnt/SDCARD/Themes/SPRUCE/nunwen.ttf"
 FONT_PATH_FB = "/mnt/SDCARD/App/PixelReader/resources/fonts/DejaVuSans.ttf"
@@ -148,19 +150,24 @@ class Gfx:
     def __init__(self):
         sdl2.ext.init(controller=False)
         sdl2.sdlttf.TTF_Init()
-        self.win = sdl2.ext.Window("SpruceChat", size=(SCREEN_H, SCREEN_W),
+        self.rotated = SCREEN_ROTATION == 270
+        if self.rotated:
+            win_size = (SCREEN_H, SCREEN_W)
+        else:
+            win_size = (SCREEN_W, SCREEN_H)
+        self.win = sdl2.ext.Window("SpruceChat", size=win_size,
                                     flags=sdl2.SDL_WINDOW_FULLSCREEN)
         self.win.show()
         sdl2.SDL_SetHint(sdl2.SDL_HINT_RENDER_SCALE_QUALITY, b"1")
         self.ren = sdl2.ext.Renderer(self.win, flags=sdl2.SDL_RENDERER_ACCELERATED)
         self.r = self.ren.sdlrenderer
 
-        # Offscreen canvas
+        # Offscreen canvas (always renders at SCREEN_W x SCREEN_H)
         self.canvas = sdl2.SDL_CreateTexture(self.r, sdl2.SDL_PIXELFORMAT_ARGB8888,
                                               sdl2.SDL_TEXTUREACCESS_TARGET, SCREEN_W, SCREEN_H)
-        # Cached rotation texture (reused every frame)
-        self.rot_tex = sdl2.SDL_CreateTexture(self.r, sdl2.SDL_PIXELFORMAT_ARGB8888,
-                                               sdl2.SDL_TEXTUREACCESS_TARGET, SCREEN_H, SCREEN_W)
+        if self.rotated:
+            self.rot_tex = sdl2.SDL_CreateTexture(self.r, sdl2.SDL_PIXELFORMAT_ARGB8888,
+                                                   sdl2.SDL_TEXTUREACCESS_TARGET, SCREEN_H, SCREEN_W)
         sdl2.SDL_SetRenderTarget(self.r, self.canvas)
 
         fp = FONT_PATH if os.path.exists(FONT_PATH) else FONT_PATH_FB
@@ -174,17 +181,21 @@ class Gfx:
         sdl2.SDL_RenderClear(self.r)
 
     def present(self):
-        # Rotate canvas into cached texture
-        sdl2.SDL_SetRenderTarget(self.r, self.rot_tex)
-        sdl2.SDL_SetRenderDrawColor(self.r, 0, 0, 0, 255)
-        sdl2.SDL_RenderClear(self.r)
-        dst = sdl2.SDL_Rect((SCREEN_H - SCREEN_W) // 2, (SCREEN_W - SCREEN_H) // 2,
-                             SCREEN_W, SCREEN_H)
-        ctr = sdl2.SDL_Point(SCREEN_W // 2, SCREEN_H // 2)
-        sdl2.SDL_RenderCopyEx(self.r, self.canvas, None, dst, 270, ctr, sdl2.SDL_FLIP_NONE)
-        # Blit to screen
-        sdl2.SDL_SetRenderTarget(self.r, None)
-        sdl2.SDL_RenderCopy(self.r, self.rot_tex, None, None)
+        if self.rotated:
+            # Rotate canvas into cached texture (A30: 270°)
+            sdl2.SDL_SetRenderTarget(self.r, self.rot_tex)
+            sdl2.SDL_SetRenderDrawColor(self.r, 0, 0, 0, 255)
+            sdl2.SDL_RenderClear(self.r)
+            dst = sdl2.SDL_Rect((SCREEN_H - SCREEN_W) // 2, (SCREEN_W - SCREEN_H) // 2,
+                                 SCREEN_W, SCREEN_H)
+            ctr = sdl2.SDL_Point(SCREEN_W // 2, SCREEN_H // 2)
+            sdl2.SDL_RenderCopyEx(self.r, self.canvas, None, dst, 270, ctr, sdl2.SDL_FLIP_NONE)
+            sdl2.SDL_SetRenderTarget(self.r, None)
+            sdl2.SDL_RenderCopy(self.r, self.rot_tex, None, None)
+        else:
+            # No rotation — blit canvas directly
+            sdl2.SDL_SetRenderTarget(self.r, None)
+            sdl2.SDL_RenderCopy(self.r, self.canvas, None, None)
         sdl2.SDL_RenderPresent(self.r)
         sdl2.SDL_SetRenderTarget(self.r, self.canvas)
 
@@ -211,7 +222,8 @@ class Gfx:
         return w, h
 
     def destroy(self):
-        sdl2.SDL_DestroyTexture(self.rot_tex)
+        if self.rotated:
+            sdl2.SDL_DestroyTexture(self.rot_tex)
         sdl2.SDL_DestroyTexture(self.canvas)
         for f in [self.f_sm, self.f_md, self.f_lg]:
             if f:
