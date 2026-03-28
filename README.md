@@ -13,9 +13,9 @@ A tiny AI that lives inside your spruceOS handheld.
 |--------|-------------|--------|
 | Miyoo A30 | armhf (32-bit) | Tested |
 | Miyoo Flip | aarch64 (64-bit) | Tested |
-| Trimui Brick | aarch64 (64-bit) | Untested |
-| Trimui Smart Pro | aarch64 (64-bit) | Untested |
-| Trimui Smart Pro S | aarch64 (64-bit) | Untested |
+| Trimui Brick | aarch64 (64-bit) | Tested |
+| Trimui Smart Pro | aarch64 (64-bit) | Tested |
+| Trimui Smart Pro S | aarch64 (64-bit) | Tested |
 
 ## What is this
 
